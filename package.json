@@ -18,6 +18,7 @@
     "element-plus": "^2.7.6",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.23.0",
+    "lodash-es": "^4.17.21",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
     "unplugin-auto-import": "^0.17.6",

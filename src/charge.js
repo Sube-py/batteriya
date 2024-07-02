@@ -5,19 +5,47 @@ const charging_stages = [
   [115, 6],
 ]
 
-export const charge = (battrty_count = 7, max_power = 1800, cool_down_time = 7) => {
+export const charge = (battrty_count = 7, max_power = 1800, cool_down_time = 7, ui = undefined) => {
   const batteries = Array(battrty_count).fill(20)
   const charging = Array(battrty_count).fill(false)
   let total_charged = 0
 
   const cool_down_map = {}
-  for (let i = 0;i < battrty_count;i++) {
+  for (let i = 0; i < battrty_count; i++) {
     cool_down_map[i] = 0
   }
 
-  for (let minute = 0;minute < 24 * 60;minute++) {
-    let current_power = 0
-    for (let i = 0;i < battrty_count;i++) {
+  let current_power = 0
+  for (let minute = 0; minute < 24 * 60; minute++) {
+    if (ui?.minutes === minute) {
+
+      ui.charged = total_charged
+      ui.power = current_power
+
+      const data = []
+      for (let i = 0; i < battrty_count; i++) {
+        let status
+        if (cool_down_map[i]) {
+          status = "exchange"
+        } else {
+          status = charging[i] === false ? "ready" : "charging"
+        }
+
+        const [stage, time_left] = status === "charging" ? charging[i] : [[0, 0], 0]
+        data[i] = {
+          status,
+          power: stage[0],
+          time: stage[1],
+          time_left,
+          battery: batteries[i],
+        }
+      }
+
+      ui.batteries = data
+      return total_charged
+    }
+    current_power = 0
+    for (let i = 0; i < battrty_count; i++) {
       if (charging[i]) {
         let [stage, time_left] = charging[i]
         current_power += stage[0]
@@ -52,7 +80,7 @@ export const charge = (battrty_count = 7, max_power = 1800, cool_down_time = 7) 
       }
     }
 
-    for (let i = 0;i < battrty_count;i++) {
+    for (let i = 0; i < battrty_count; i++) {
       if (charging[i] === false) {
         if (cool_down_map[i] > 0) {
           cool_down_map[i] -= 1
