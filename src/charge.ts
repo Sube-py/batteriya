@@ -162,6 +162,9 @@ export const simulateCharging = (
       if (charging[i] === false && batteries[i] < 100) {
         for (const stage of chargingStages) {
           if (batteries[i] === 20 && stage[1] === 63) {
+            if (Object.values(coolDownMap).some((value) => value === true)) {
+              continue
+            }
             coolDownMap[i] = minute > coolDownTime ? true : false
             coolDown = coolDownTime
             if (currentPower + stage[0] <= maxPower) {

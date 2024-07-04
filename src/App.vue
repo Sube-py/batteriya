@@ -13,7 +13,7 @@ const form = reactive({
 const total = ref(0)
 
 const ui = reactive<UI>({
-  minutes: 8,
+  minutes: 663,
   charged: 0,
   power: 0,
   batteries: Array(7).fill({
