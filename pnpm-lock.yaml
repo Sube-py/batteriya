@@ -12,6 +12,9 @@ importers:
         specifier: ^3.4.29
         version: 3.4.31(typescript@5.4.5)
     devDependencies:
+      '@element-plus/icons-vue':
+        specifier: ^2.3.1
+        version: 2.3.1(vue@3.4.31(typescript@5.4.5))
       '@rushstack/eslint-patch':
         specifier: ^1.8.0
         version: 1.10.3

@@ -12,3 +12,14 @@ export interface UI {
   power: number
   batteries: BatteryUI[]
 }
+
+type Power = number
+type Time = number
+export type Stage = [Power, Time]
+
+export interface Form {
+  batteryNum: number
+  maxPower: number
+  time: number
+  stages: Stage[]
+}
