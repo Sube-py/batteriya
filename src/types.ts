@@ -9,8 +9,14 @@ export interface BatteryUI {
 export interface UI {
   minutes: number
   charged: number
-  power: number
-  batteries: BatteryUI[]
+  chartsLoading: boolean
+  powerMap: {
+    [key: number]: {
+      currentTotalPower: number
+      batteriesData: BatteryUI[]
+      charged: number
+    }
+  }
 }
 
 type Power = number
@@ -22,4 +28,9 @@ export interface Form {
   maxPower: number
   time: number
   stages: Stage[]
+}
+export interface ChartsData {
+  title: string
+  xAxis: string[]
+  yAxis: number[]
 }

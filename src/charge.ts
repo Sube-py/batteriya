@@ -128,7 +128,7 @@ export const simulateCharging = (
     // ui
     if (ui?.minutes === minute) {
       ui.charged = totalCharged
-      ui.power = currentPower
+      // ui.power = currentPower
 
       const data: BatteryUI[] = []
       for (let i = 0; i < battrtyCount; i++) {
@@ -151,7 +151,7 @@ export const simulateCharging = (
         }
       }
 
-      ui.batteries = data
+      // ui.batteries = data
       return totalCharged
     }
 
@@ -213,5 +213,155 @@ export const simulateCharging = (
   return totalCharged
 }
 
-// const total = simulateCharging(7, 1800, 7);
-// console.log(`24小时内最多可以进出${total}块电池`);
+export const simulateChargingWithUI = (
+  battrtyCount = 7,
+  maxPower = 1800,
+  coolDownTime = 7,
+  chargeStages: Stage[] = [
+    [326, 63],
+    [245, 6],
+    [150, 6],
+    [115, 6]
+  ],
+  ui: Reactive<UI>
+): number => {
+  ui.chartsLoading = true
+  const batteries: number[] = Array(battrtyCount).fill(20)
+  const charging: ChargeStatusType[] = Array(battrtyCount).fill(false)
+  let totalCharged = 0
+
+  let coolDown = 7
+  let currentPower = 0
+  const coolDownMap: { [key: number]: boolean } = {}
+  for (let i = 0; i < battrtyCount; i++) {
+    coolDownMap[i] = false
+  }
+  for (let minute = 0; minute <= 24 * 60; minute++) {
+    currentPower = 0
+
+    for (let i = 0; i < battrtyCount; i++) {
+      if (charging.every((value) => value === false)) {
+        break
+      }
+      if (charging[i] !== false) {
+        const chargeStatus = charging[i] as ChargeStatus
+        const stage: Stage = [chargeStatus.standardPower, chargeStatus.standardTime]
+        let timeLeft = chargeStatus.time
+        currentPower += chargeStatus.power
+        timeLeft -= 1
+
+        if (timeLeft === 0) {
+          if (batteries[i] === 20) {
+            batteries[i] = 89
+            adjustPower(chargeStatus, charging, chargeStages)
+          } else if (batteries[i] === 89) {
+            batteries[i] = 92
+            adjustPower(chargeStatus, charging, chargeStages)
+          } else if (batteries[i] === 92) {
+            batteries[i] = 97
+            adjustPower(chargeStatus, charging, chargeStages)
+          } else if (batteries[i] === 97) {
+            batteries[i] = 100
+            adjustPower(chargeStatus, charging, chargeStages)
+            charging[i] = false
+            totalCharged += 1
+            batteries[i] = 20
+            continue
+          }
+
+          const index = chargeStages.findIndex((s) => s[0] === stage[0] && s[1] === stage[1])
+          const nextStage = chargeStages[index + 1]
+          charging[i] = new ChargeStatus(nextStage[0], nextStage[1], nextStage[0], nextStage[1])
+        } else {
+          charging[i] = new ChargeStatus(stage[0], stage[1], chargeStatus.power, timeLeft)
+        }
+      }
+    }
+
+    // ui
+    ui.charged = totalCharged
+    const data: BatteryUI[] = []
+    for (let i = 0; i < battrtyCount; i++) {
+      let status: Status
+      if (coolDownMap[i]) {
+        status = 'exchange'
+      } else {
+        status = charging[i] === false ? 'ready' : 'charging'
+      }
+
+      const chargeStatus = (
+        status === 'charging' ? charging[i] : new ChargeStatus(0, 0, 0, 0)
+      ) as ChargeStatus
+      data[i] = {
+        status,
+        power: chargeStatus.power,
+        time: chargeStatus.standardTime,
+        timeLeft: chargeStatus.time,
+        battery: batteries[i]
+      }
+    }
+
+    ui.powerMap[minute] = {
+      currentTotalPower: data.reduce((acc, cur) => acc + cur.power, 0),
+      batteriesData: data,
+      charged: totalCharged
+    }
+
+    if (coolDown > 0) {
+      coolDown -= 1
+      continue
+    }
+
+    for (let i = 0; i < battrtyCount; i++) {
+      if (coolDown > 0) {
+        continue
+      } else {
+        coolDownMap[i] = false
+      }
+      if (charging[i] === false && batteries[i] < 100) {
+        for (const stage of chargeStages) {
+          if (batteries[i] === 20) {
+            if (Object.values(coolDownMap).some((value) => value === true)) {
+              continue
+            }
+            coolDownMap[i] = minute > coolDownTime ? true : false
+            coolDown = coolDownTime
+            if (currentPower + stage[0] <= maxPower) {
+              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
+              currentPower += stage[0]
+              break
+            } else if (maxPower - currentPower > 0) {
+              const leftPower = maxPower - currentPower
+              const needTime = Math.ceil((stage[0] * stage[1]) / leftPower)
+              charging[i] = new ChargeStatus(stage[0], stage[1], leftPower, needTime)
+              break
+            } else {
+              charging[i] = new ChargeStatus(stage[0], stage[1], 0, Infinity)
+              break
+            }
+          } else if (batteries[i] === 89) {
+            if (currentPower + stage[0] <= maxPower) {
+              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
+              currentPower += stage[0]
+              break
+            }
+          } else if (batteries[i] === 92) {
+            if (currentPower + stage[0] <= maxPower) {
+              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
+              currentPower += stage[0]
+              break
+            }
+          } else if (batteries[i] === 97) {
+            if (currentPower + stage[0] <= maxPower) {
+              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
+              currentPower += stage[0]
+              break
+            }
+          }
+        }
+      }
+    }
+  }
+  ui.chartsLoading = false
+  return totalCharged
+}
