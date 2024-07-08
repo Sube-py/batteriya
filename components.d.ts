@@ -16,5 +16,6 @@ declare module 'vue' {
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
     ElScrollbar: typeof import('element-plus/es')['ElScrollbar']
     ElSlider: typeof import('element-plus/es')['ElSlider']
+    LineChart: typeof import('./src/components/LineChart.vue')['default']
   }
 }
