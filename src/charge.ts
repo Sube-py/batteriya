@@ -34,6 +34,13 @@ const adjustPower = (chargeStatus: ChargeStatus, charging: ChargeStatusType[], s
     nextPower = stages[nextStageIndex][0]
   }
   let powerLeft = chargeStatus.power - nextPower
+
+  // if (powerLeft < 0) {
+  //   debugger
+  //   chargeStatus.time = Math.ceil((nextPower * stages[nextStageIndex][1]) / chargeStatus.power)
+  //   return
+  // }
+
   for (const item of charging) {
     if (powerLeft <= 0) {
       break
@@ -253,16 +260,16 @@ export const simulateChargingWithUI = (
         if (timeLeft === 0) {
           if (batteries[i] === 20) {
             batteries[i] = 89
-            adjustPower(chargeStatus, charging, chargeStages)
+            // adjustPower(chargeStatus, charging, chargeStages)
           } else if (batteries[i] === 89) {
             batteries[i] = 92
-            adjustPower(chargeStatus, charging, chargeStages)
+            // adjustPower(chargeStatus, charging, chargeStages)
           } else if (batteries[i] === 92) {
             batteries[i] = 97
-            adjustPower(chargeStatus, charging, chargeStages)
+            // adjustPower(chargeStatus, charging, chargeStages)
           } else if (batteries[i] === 97) {
             batteries[i] = 100
-            adjustPower(chargeStatus, charging, chargeStages)
+            // adjustPower(chargeStatus, charging, chargeStages)
             charging[i] = false
             totalCharged += 1
             batteries[i] = 20
@@ -334,8 +341,10 @@ export const simulateChargingWithUI = (
               const leftPower = maxPower - currentPower
               const needTime = Math.ceil((stage[0] * stage[1]) / leftPower)
               charging[i] = new ChargeStatus(stage[0], stage[1], leftPower, needTime)
+              currentPower = maxPower
               break
             } else {
+              console.log('max power is not enough', currentPower)
               charging[i] = new ChargeStatus(stage[0], stage[1], 0, Infinity)
               break
             }

@@ -6,14 +6,14 @@ import type { UI, Form, Stage, ChartsData } from '@/types'
 import LineChart from '@/components/LineChart.vue'
 
 const form = reactive<Form>({
-  batteryNum: 7,
-  maxPower: 1800,
-  time: 7,
+  batteryNum: 4,
+  maxPower: 700,
+  time: 10,
   stages: [
-    [326, 63],
-    [245, 6],
-    [150, 6],
-    [115, 6]
+    [336.8, 57],
+    [236.8, 6],
+    [147.4, 6],
+    [110.5, 6]
   ]
 })
 
@@ -22,7 +22,7 @@ const graphModalVisible = ref(false)
 const total = ref(0)
 
 const ui = reactive<UI>({
-  minutes: 164,
+  minutes: 387,
   charged: 0,
   chartsLoading: true,
   powerMap: {
@@ -214,6 +214,7 @@ watch(
   padding-top: 4px;
   padding-bottom: 4px;
 }
+
 .el-dialog__body {
   height: calc(100% - 72px);
 }
