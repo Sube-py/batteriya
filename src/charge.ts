@@ -3,13 +3,6 @@ import type { UI, BatteryUI, ChargeStatus as Status, Stage } from '@/types'
 type LiteralFalse = false
 type ChargeStatusType = ChargeStatus | LiteralFalse
 
-// const chargingStages: ChargingStage[] = [
-//   [326, 63],
-//   [245, 6],
-//   [150, 6],
-//   [115, 6]
-// ]
-
 class ChargeStatus {
   constructor(
     public standardPower: number,
@@ -22,202 +15,82 @@ class ChargeStatus {
     this.power = power
     this.time = time
   }
+
+  get stage(): Stage {
+    return [this.standardPower, this.standardTime]
+  }
+
+  nextStage(stages: Stage[]): Stage {
+    const stage: Stage = [this.standardPower, this.standardTime]
+    const nextStageIndex = stages.findIndex((s) => s[0] === stage[0] && s[1] === stage[1]) + 1
+    if (nextStageIndex >= stages.length) {
+      return stages[0]
+    } else {
+      return stages[nextStageIndex]
+    }
+  }
+
+  set setNextStage(stage: Stage) {
+    this.standardPower = stage[0]
+    this.standardTime = stage[1]
+  }
 }
 
-const adjustPower = (chargeStatus: ChargeStatus, charging: ChargeStatusType[], stages: Stage[]) => {
-  const stage: Stage = [chargeStatus.standardPower, chargeStatus.standardTime]
-  const nextStageIndex = stages.findIndex((s) => s[0] === stage[0] && s[1] === stage[1]) + 1
-  let nextPower: number
-  if (nextStageIndex >= stages.length) {
-    nextPower = 0
+const getLeftTime = (chargeStatus: ChargeStatus, updatedPower: number) => {
+  const { standardPower, standardTime, power: currentPower, time: chargedTime } = chargeStatus
+  const chargedJoule =
+    currentPower > 0
+      ? ((standardPower * standardTime) / currentPower - chargedTime) * currentPower
+      : 0
+  const newTime = Math.ceil((standardPower * standardTime - chargedJoule) / updatedPower)
+
+  return parseFloat(newTime.toFixed(2))
+}
+
+const adjustPower = (
+  currentChargeStatus: ChargeStatus,
+  charging: ChargeStatusType[],
+  stages: Stage[]
+) => {
+  const nextStage = currentChargeStatus.nextStage(stages)
+  const [nextStagePower, nextStageTime] = nextStage
+
+  let powerLeft = currentChargeStatus.power - nextStagePower
+  if (powerLeft > 0) {
+    // 上阶段的功率大于下一阶段的功率
+    currentChargeStatus.setNextStage = nextStage
+    currentChargeStatus.power = nextStagePower
+    currentChargeStatus.time = nextStageTime
+
+    for (const chargingBattery of charging) {
+      if (powerLeft <= 0) {
+        break
+      }
+      if (
+        chargingBattery instanceof ChargeStatus &&
+        chargingBattery.power < chargingBattery.standardPower
+      ) {
+        const usedPower = chargingBattery.standardPower - chargingBattery.power
+        chargingBattery.time = getLeftTime(
+          chargingBattery,
+          Math.min(chargingBattery.power + powerLeft, chargingBattery.standardPower)
+        )
+
+        if (usedPower <= powerLeft) {
+          powerLeft -= usedPower
+          chargingBattery.power = chargingBattery.standardPower
+        } else {
+          chargingBattery.power += powerLeft
+          powerLeft = 0
+          break
+        }
+      }
+    }
   } else {
-    nextPower = stages[nextStageIndex][0]
+    // 上阶段的功率小于下一阶段的功率
+    currentChargeStatus.setNextStage = nextStage
+    currentChargeStatus.time = getLeftTime(currentChargeStatus, currentChargeStatus.power)
   }
-  let powerLeft = chargeStatus.power - nextPower
-
-  // if (powerLeft < 0) {
-  //   debugger
-  //   chargeStatus.time = Math.ceil((nextPower * stages[nextStageIndex][1]) / chargeStatus.power)
-  //   return
-  // }
-
-  for (const item of charging) {
-    if (powerLeft <= 0) {
-      break
-    }
-    if (item instanceof ChargeStatus && item.power < item.standardPower) {
-      const _power = item.standardPower - item.power
-      const chargedJoule =
-        item.power > 0
-          ? ((item.standardPower * item.standardTime) / item.power - item.time) * item.power
-          : 0
-      const newTime = Math.ceil(
-        (item.standardPower * item.standardTime - chargedJoule) /
-          Math.min(item.power + powerLeft, item.standardPower)
-      )
-      item.time = newTime
-      if (_power <= powerLeft) {
-        powerLeft -= _power
-        item.power = item.standardPower
-      } else {
-        item.power += powerLeft
-        powerLeft = 0
-        break
-      }
-    }
-  }
-}
-
-export const simulateCharging = (
-  battrtyCount = 7,
-  maxPower = 1800,
-  coolDownTime = 7,
-  chargeStages: Stage[] = [
-    [326, 63],
-    [245, 6],
-    [150, 6],
-    [115, 6]
-  ],
-  ui: Reactive<UI> | undefined = undefined
-): number => {
-  const batteries: number[] = Array(battrtyCount).fill(20)
-  const charging: ChargeStatusType[] = Array(battrtyCount).fill(false)
-  let totalCharged = 0
-
-  let coolDown = 7
-  let currentPower = 0
-  const coolDownMap: { [key: number]: boolean } = {}
-  for (let i = 0; i < battrtyCount; i++) {
-    coolDownMap[i] = false
-  }
-  for (let minute = 0; minute < 24 * 60; minute++) {
-    currentPower = 0
-
-    for (let i = 0; i < battrtyCount; i++) {
-      if (charging.every((value) => value === false)) {
-        break
-      }
-      if (charging[i] !== false) {
-        const chargeStatus = charging[i] as ChargeStatus
-        const stage: Stage = [chargeStatus.standardPower, chargeStatus.standardTime]
-        let timeLeft = chargeStatus.time
-        currentPower += chargeStatus.power
-        timeLeft -= 1
-
-        if (timeLeft === 0) {
-          if (batteries[i] === 20) {
-            batteries[i] = 89
-            adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 89) {
-            batteries[i] = 92
-            adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 92) {
-            batteries[i] = 97
-            adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 97) {
-            batteries[i] = 100
-            adjustPower(chargeStatus, charging, chargeStages)
-            charging[i] = false
-            totalCharged += 1
-            batteries[i] = 20
-            continue
-          }
-
-          const index = chargeStages.findIndex((s) => s[0] === stage[0] && s[1] === stage[1])
-          const nextStage = chargeStages[index + 1]
-          charging[i] = new ChargeStatus(nextStage[0], nextStage[1], nextStage[0], nextStage[1])
-        } else {
-          charging[i] = new ChargeStatus(stage[0], stage[1], chargeStatus.power, timeLeft)
-        }
-      }
-    }
-
-    // ui
-    if (ui?.minutes === minute) {
-      ui.charged = totalCharged
-      // ui.power = currentPower
-
-      const data: BatteryUI[] = []
-      for (let i = 0; i < battrtyCount; i++) {
-        let status: Status
-        if (coolDownMap[i]) {
-          status = 'exchange'
-        } else {
-          status = charging[i] === false ? 'ready' : 'charging'
-        }
-
-        const chargeStatus = (
-          status === 'charging' ? charging[i] : new ChargeStatus(0, 0, 0, 0)
-        ) as ChargeStatus
-        data[i] = {
-          status,
-          power: chargeStatus.power,
-          time: chargeStatus.standardTime,
-          timeLeft: chargeStatus.time,
-          battery: batteries[i]
-        }
-      }
-
-      // ui.batteries = data
-      return totalCharged
-    }
-
-    if (coolDown > 0) {
-      coolDown -= 1
-      continue
-    }
-
-    for (let i = 0; i < battrtyCount; i++) {
-      if (coolDown > 0) {
-        continue
-      } else {
-        coolDownMap[i] = false
-      }
-      if (charging[i] === false && batteries[i] < 100) {
-        for (const stage of chargeStages) {
-          if (batteries[i] === 20) {
-            if (Object.values(coolDownMap).some((value) => value === true)) {
-              continue
-            }
-            coolDownMap[i] = minute > coolDownTime ? true : false
-            coolDown = coolDownTime
-            if (currentPower + stage[0] <= maxPower) {
-              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
-              currentPower += stage[0]
-              break
-            } else if (maxPower - currentPower > 0) {
-              const leftPower = maxPower - currentPower
-              const needTime = Math.ceil((stage[0] * stage[1]) / leftPower)
-              charging[i] = new ChargeStatus(stage[0], stage[1], leftPower, needTime)
-              break
-            } else {
-              charging[i] = new ChargeStatus(stage[0], stage[1], 0, Infinity)
-              break
-            }
-          } else if (batteries[i] === 89) {
-            if (currentPower + stage[0] <= maxPower) {
-              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
-              currentPower += stage[0]
-              break
-            }
-          } else if (batteries[i] === 92) {
-            if (currentPower + stage[0] <= maxPower) {
-              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
-              currentPower += stage[0]
-              break
-            }
-          } else if (batteries[i] === 97) {
-            if (currentPower + stage[0] <= maxPower) {
-              charging[i] = new ChargeStatus(stage[0], stage[1], stage[0], stage[1])
-              currentPower += stage[0]
-              break
-            }
-          }
-        }
-      }
-    }
-  }
-  return totalCharged
 }
 
 export const simulateChargingWithUI = (
@@ -250,39 +123,42 @@ export const simulateChargingWithUI = (
       if (charging.every((value) => value === false)) {
         break
       }
-      if (charging[i] !== false) {
-        const chargeStatus = charging[i] as ChargeStatus
-        const stage: Stage = [chargeStatus.standardPower, chargeStatus.standardTime]
-        let timeLeft = chargeStatus.time
-        currentPower += chargeStatus.power
-        timeLeft -= 1
-
-        if (timeLeft === 0) {
-          if (batteries[i] === 20) {
-            batteries[i] = 89
-            // adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 89) {
-            batteries[i] = 92
-            // adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 92) {
-            batteries[i] = 97
-            // adjustPower(chargeStatus, charging, chargeStages)
-          } else if (batteries[i] === 97) {
-            batteries[i] = 100
-            // adjustPower(chargeStatus, charging, chargeStages)
-            charging[i] = false
-            totalCharged += 1
-            batteries[i] = 20
-            continue
-          }
-
-          const index = chargeStages.findIndex((s) => s[0] === stage[0] && s[1] === stage[1])
-          const nextStage = chargeStages[index + 1]
-          charging[i] = new ChargeStatus(nextStage[0], nextStage[1], nextStage[0], nextStage[1])
-        } else {
-          charging[i] = new ChargeStatus(stage[0], stage[1], chargeStatus.power, timeLeft)
-        }
+      const currentChargeStatus = charging[i]
+      if (!(currentChargeStatus instanceof ChargeStatus)) {
+        continue
       }
+
+      currentChargeStatus.time -= 1
+
+      if (currentChargeStatus.time === 0) {
+        if (batteries[i] === 20) {
+          batteries[i] = 89
+          adjustPower(currentChargeStatus, charging, chargeStages)
+        } else if (batteries[i] === 89) {
+          batteries[i] = 92
+          adjustPower(currentChargeStatus, charging, chargeStages)
+        } else if (batteries[i] === 92) {
+          batteries[i] = 97
+          adjustPower(currentChargeStatus, charging, chargeStages)
+        } else if (batteries[i] === 97) {
+          batteries[i] = 100
+          debugger
+          // adjustPower(currentChargeStatus, charging, chargeStages)
+          charging[i] = false
+          totalCharged += 1
+          batteries[i] = 20
+        }
+      } else {
+        const stage = currentChargeStatus.stage
+        charging[i] = new ChargeStatus(
+          stage[0],
+          stage[1],
+          currentChargeStatus.power,
+          currentChargeStatus.time
+        )
+      }
+
+      currentPower += currentChargeStatus.power
     }
 
     // ui
