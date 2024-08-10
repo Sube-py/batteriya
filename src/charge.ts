@@ -3,7 +3,11 @@ import type { UI, BatteryUI, ChargeStatus as Status, Stage } from '@/types'
 type LiteralFalse = false
 type ChargeStatusType = ChargeStatus | LiteralFalse
 
+const BATTERY_LEVEL = [20, 89, 92, 97, 100]
+
 class ChargeStatus {
+  private _coolDown: number
+  private _level: number
   constructor(
     public standardPower: number,
     public standardTime: number,
@@ -14,6 +18,8 @@ class ChargeStatus {
     this.standardTime = standardTime
     this.power = power
     this.time = time
+    this._coolDown = 0
+    this._level = 0
   }
 
   get stage(): Stage {
@@ -33,6 +39,28 @@ class ChargeStatus {
   set setNextStage(stage: Stage) {
     this.standardPower = stage[0]
     this.standardTime = stage[1]
+  }
+
+  get coolDown(): number {
+    return this._coolDown
+  }
+
+  set coolDown(coolDown: number) {
+    this._coolDown = coolDown
+  }
+
+  get level(): number {
+    return this._level
+  }
+
+  set level(level: number) {
+    this._level = level
+  }
+
+  nextLevel() {
+    const levelIndex = BATTERY_LEVEL.findIndex((l) => l === this.level)
+    const nextLevelIndex = levelIndex + 1 >= BATTERY_LEVEL.length ? 0 : levelIndex + 1
+    return BATTERY_LEVEL[nextLevelIndex]
   }
 }
 
@@ -110,7 +138,7 @@ export const simulateChargingWithUI = (
   const charging: ChargeStatusType[] = Array(battrtyCount).fill(false)
   let totalCharged = 0
 
-  let coolDown = 7
+  let coolDown = coolDownTime
   let currentPower = 0
   const coolDownMap: { [key: number]: boolean } = {}
   for (let i = 0; i < battrtyCount; i++) {
@@ -142,20 +170,16 @@ export const simulateChargingWithUI = (
           adjustPower(currentChargeStatus, charging, chargeStages)
         } else if (batteries[i] === 97) {
           batteries[i] = 100
-          debugger
-          // adjustPower(currentChargeStatus, charging, chargeStages)
-          charging[i] = false
           totalCharged += 1
-          batteries[i] = 20
+          currentChargeStatus.coolDown = coolDownTime
+        } else {
+          // 100%
+          currentChargeStatus.coolDown -= 1
+          if (currentChargeStatus.coolDown === 0) {
+            batteries[i] = 20
+            adjustPower(currentChargeStatus, charging, chargeStages)
+          }
         }
-      } else {
-        const stage = currentChargeStatus.stage
-        charging[i] = new ChargeStatus(
-          stage[0],
-          stage[1],
-          currentChargeStatus.power,
-          currentChargeStatus.time
-        )
       }
 
       currentPower += currentChargeStatus.power
@@ -195,6 +219,7 @@ export const simulateChargingWithUI = (
       continue
     }
 
+    // continue
     for (let i = 0; i < battrtyCount; i++) {
       if (coolDown > 0) {
         continue
