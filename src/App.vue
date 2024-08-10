@@ -2,20 +2,21 @@
 import { reactive, ref, watch, toRaw, computed } from 'vue'
 import { Delete } from '@element-plus/icons-vue'
 import { simulateChargingWithUI } from '@/charge'
-import type { UI, Form, Stage, ChartsData } from '@/types'
+import type { UI, Stage, ChartsData } from '@/types'
 import LineChart from '@/components/LineChart.vue'
+import { UICache as form } from '@/cache'
 
-const form = reactive<Form>({
-  batteryNum: 4,
-  maxPower: 700,
-  time: 10,
-  stages: [
-    [336.8, 57],
-    [236.8, 6],
-    [147.4, 6],
-    [110.5, 6]
-  ]
-})
+// const form = reactive<Form>({
+//   batteryNum: 4,
+//   maxPower: 700,
+//   time: 10,
+//   stages: [
+//     [336.8, 57],
+//     [236.8, 6],
+//     [147.4, 6],
+//     [110.5, 6]
+//   ]
+// })
 
 const graphModalVisible = ref(false)
 
@@ -75,9 +76,14 @@ const mockedTime = computed(() => {
 
 watch(
   form,
-  () => {
-    if (!form.batteryNum || !form.maxPower || !form.time || !form.stages.length) return
-    const formCopy = toRaw(form)
+  (formValue) => {
+    if (!formValue.batteryNum || !formValue.maxPower || !formValue.time || !formValue.stages.length) return
+    const formCopy = toRaw(formValue)
+    if (formCopy.maxPower < Math.max(...formCopy.stages.map(item => item[0]))) {
+      ElMessage.warning('最大功率不能小于阶段功率')
+      form.value.maxPower = Math.max(...formCopy.stages.map(item => item[0]))
+      return
+    }
     total.value = simulateChargingWithUI(
       formCopy.batteryNum,
       formCopy.maxPower,
@@ -103,18 +109,6 @@ watch(
   },
   { immediate: true, deep: true }
 )
-
-// watch(
-//   () => [ui.minutes, form],
-//   debounce(() => {
-//     return
-//     console.log(form)
-//     if (!form.batteryNum || !form.maxPower || !form.time || !form.stages.length) return
-//     const formCopy = toRaw(form)
-//     simulateCharging(formCopy.batteryNum, formCopy.maxPower, formCopy.time, formCopy.stages, ui)
-//   }, 100),
-//   { immediate: true, deep: true }
-// )
 </script>
 <template>
   <div class="h-screen w-full bg-gray-100 flex">

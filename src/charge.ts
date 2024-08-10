@@ -73,7 +73,7 @@ const getLeftTime = (chargeStatus: ChargeStatus, updatedPower: number) => {
     currentPower > 0 && chargedTime > 0
       ? ((standardPower * standardTime) / currentPower - chargedTime) * currentPower
       : 0
-  const newTime = Math.ceil((standardPower * standardTime - chargedJoule) / updatedPower)
+  const newTime = (standardPower * standardTime - chargedJoule) / updatedPower
 
   return parseFloat(newTime.toFixed())
 }
@@ -226,7 +226,7 @@ export const simulateChargingWithUI = (
     }
 
     ui.powerMap[minute] = {
-      currentTotalPower: data.reduce((acc, cur) => acc + cur.power, 0),
+      currentTotalPower: parseFloat(data.reduce((acc, cur) => acc + cur.power, 0).toFixed(2)),
       batteriesData: data,
       charged: totalCharged
     }
