@@ -120,6 +120,14 @@ const adjustPower = (
     }
   } else {
     // 上阶段的功率小于下一阶段的功率
+    const totalLeftPower =
+      maxPower -
+      (charging.every((value) => value === false)
+        ? 0
+        : charging.reduce((a, b) => a + (b instanceof ChargeStatus ? b.power : 0), 0))
+    if (totalLeftPower > 0 && totalLeftPower > nextStagePower - currentChargeStatus.power) {
+      currentChargeStatus.power = nextStagePower
+    }
     currentChargeStatus.setNextStage = nextStage
     currentChargeStatus.time = getLeftTime(currentChargeStatus, currentChargeStatus.power)
   }
