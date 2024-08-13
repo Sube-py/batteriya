@@ -21,6 +21,9 @@ class ChargeStatus {
     this._coolDown = 0
     this._level = 0
   }
+  get priority(): number {
+    return this.standardPower
+  }
 
   get stage(): Stage {
     return [this.standardPower, this.standardTime]
@@ -93,8 +96,19 @@ const adjustPower = (
     currentChargeStatus.setNextStage = nextStage
     currentChargeStatus.power = nextStagePower
     currentChargeStatus.time = nextStageTime
-
-    for (const chargingBattery of charging) {
+    const sorted = Array.from(charging.entries()).sort((a, b) => {
+      if (a[1] instanceof ChargeStatus && b[1] instanceof ChargeStatus) {
+        if (a[1].priority !== b[1].priority) {
+          return b[1].priority - a[1].priority
+        } else {
+          return a[1].power - b[1].power
+        }
+      }
+      return 0
+    })
+    for (const [index, _] of sorted) {
+      const chargingBattery = charging[index]
+      // for (const chargingBattery of charging) {
       if (powerLeft <= 0) {
         break
       }
@@ -125,8 +139,12 @@ const adjustPower = (
       (charging.every((value) => value === false)
         ? 0
         : charging.reduce((a, b) => a + (b instanceof ChargeStatus ? b.power : 0), 0))
-    if (totalLeftPower > 0 && totalLeftPower > nextStagePower - currentChargeStatus.power) {
-      currentChargeStatus.power = nextStagePower
+    if (totalLeftPower > 0) {
+      if (totalLeftPower > nextStagePower - currentChargeStatus.power) {
+        currentChargeStatus.power = nextStagePower
+      } else {
+        currentChargeStatus.power += totalLeftPower
+      }
     }
     currentChargeStatus.setNextStage = nextStage
     currentChargeStatus.time = getLeftTime(currentChargeStatus, currentChargeStatus.power)
@@ -148,10 +166,10 @@ export const simulateChargingWithUI = (
   ui.chartsLoading = true
   const charging: ChargeStatusType[] = Array(battrtyCount).fill(false)
   let totalCharged = 0
-  coolDownTime += 1
+  // coolDownTime += 1
   for (let minute = 0; minute <= 24 * 60; minute++) {
     let chargeIndex = -1
-    for (let currentChargeStatus of charging) {
+    for (const currentChargeStatus of charging) {
       chargeIndex++
       if (!(currentChargeStatus instanceof ChargeStatus)) {
         if (charging.some((value) => value instanceof ChargeStatus && value.coolDown > 0)) {
@@ -175,7 +193,7 @@ export const simulateChargingWithUI = (
         newCharge.coolDown = coolDownTime
         newCharge.level = BATTERY_LEVEL[0]
         charging[chargeIndex] = newCharge
-        currentChargeStatus = charging[chargeIndex] as ChargeStatus
+        continue
       }
 
       if (currentChargeStatus.coolDown > 0) {
@@ -239,6 +257,7 @@ export const simulateChargingWithUI = (
       charged: totalCharged
     }
   }
+  console.log(ui.powerMap)
   ui.chartsLoading = false
   return totalCharged
 }
