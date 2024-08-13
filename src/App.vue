@@ -79,12 +79,12 @@ watch(
   (formValue) => {
     if (!formValue.batteryNum || !formValue.maxPower || !formValue.time || !formValue.stages.length) return
     const formCopy = toRaw(formValue)
-    if (formCopy.maxPower < Math.max(...formCopy.stages.map(item => item[0]))) {
-      // @ts-ignore
-      ElMessage.warning('最大功率不能小于阶段功率')
-      form.value.maxPower = Math.max(...formCopy.stages.map(item => item[0]))
-      return
-    }
+    // if (formCopy.maxPower < Math.max(...formCopy.stages.map(item => item[0]))) {
+    //   // @ts-ignore
+    //   ElMessage.warning('最大功率不能小于阶段功率')
+    //   form.value.maxPower = Math.max(...formCopy.stages.map(item => item[0]))
+    //   return
+    // }
     total.value = simulateChargingWithUI(
       formCopy.batteryNum,
       formCopy.maxPower,
