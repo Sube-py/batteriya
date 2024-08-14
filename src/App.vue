@@ -4,7 +4,9 @@ import { Delete } from '@element-plus/icons-vue'
 import { simulateChargingWithUI } from '@/charge'
 import type { UI, Stage, ChartsData } from '@/types'
 import LineChart from '@/components/LineChart.vue'
+import PowerTable from '@/components/PowerTable.vue'
 import { UICache as form } from '@/cache'
+import { formatTooltip } from '@/utils'
 
 // const form = reactive<Form>({
 //   batteryNum: 4,
@@ -19,6 +21,7 @@ import { UICache as form } from '@/cache'
 // })
 
 const graphModalVisible = ref(false)
+const powerDetailModalVisible = ref(false)
 
 const total = ref(0)
 
@@ -60,16 +63,6 @@ const addStage = () => {
   // form.stages.push([110, 10])
 }
 
-const formatTooltip = (minutes: number) => {
-  let hours = Math.floor(minutes / 60)
-  let mins = minutes % 60
-
-  let formattedHours = hours.toString().padStart(2, '0')
-  let formattedMinutes = mins.toString().padStart(2, '0')
-
-  return `${formattedHours}:${formattedMinutes}`
-}
-
 const mockedTime = computed(() => {
   return formatTooltip(ui.minutes)
 })
@@ -77,7 +70,8 @@ const mockedTime = computed(() => {
 watch(
   form,
   (formValue) => {
-    if (!formValue.batteryNum || !formValue.maxPower || !formValue.time || !formValue.stages.length) return
+    if (!formValue.batteryNum || !formValue.maxPower || !formValue.time || !formValue.stages.length)
+      return
     const formCopy = toRaw(formValue)
     // if (formCopy.maxPower < Math.max(...formCopy.stages.map(item => item[0]))) {
     //   // @ts-ignore
@@ -116,23 +110,13 @@ watch(
     <div class="flex flex-col w-[500px] p-4 shrink-0">
       <el-form :model="form">
         <el-form-item label="电池数量">
-          <el-input-number
-            :min="1"
-            v-model="form.batteryNum"
-          />
+          <el-input-number :min="1" v-model="form.batteryNum" />
         </el-form-item>
         <el-form-item label="最大功率">
-          <el-input-number
-            :min="1"
-            :step="100"
-            v-model="form.maxPower"
-          />
+          <el-input-number :min="1" :step="100" v-model="form.maxPower" />
         </el-form-item>
         <el-form-item label="换电时间">
-          <el-input-number
-            :min="0"
-            v-model="form.time"
-          />
+          <el-input-number :min="0" v-model="form.time" />
         </el-form-item>
         <el-form-item
           v-for="(stage, index) in form.stages"
@@ -144,32 +128,18 @@ watch(
           }"
         >
           <div class="flex gap-2">
-            <el-input-number
-              :min="0"
-              v-model="stage[0]"
-            />瓦
+            <el-input-number :min="0" v-model="stage[0]" />瓦
             <div>-</div>
-            <el-input-number
-              :min="0"
-              v-model="stage[1]"
-            />分
-            <el-button
-              type="danger"
-              :icon="Delete"
-              circle
-              @click="removeStage(stage)"
-            />
+            <el-input-number :min="0" v-model="stage[1]" />分
+            <el-button type="danger" :icon="Delete" circle @click="removeStage(stage)" />
           </div>
         </el-form-item>
         <el-form-item>
-          <el-button
-            type="primary"
-            @click="addStage"
-          >New stage</el-button>
-          <el-button
-            type="primary"
-            @click="graphModalVisible = true"
-          >Power graph</el-button>
+          <el-button type="primary" @click="addStage">New stage</el-button>
+          <el-button type="primary" @click="graphModalVisible = true">Power graph</el-button>
+          <el-button type="primary" @click="powerDetailModalVisible = true"
+            >Power Details</el-button
+          >
         </el-form-item>
       </el-form>
       <div class="text-xl font-bold">总计:{{ total }}块</div>
@@ -182,12 +152,7 @@ watch(
     <div class="flex-1 flex flex-col p-4 h-full w-full overflow-hidden gap-3">
       <div class="w-full flex h-8">
         <div class="text-xl font-bold w-20">时间线</div>
-        <el-slider
-          v-model="ui.minutes"
-          :min="0"
-          :max="24 * 60"
-          :format-tooltip="formatTooltip"
-        />
+        <el-slider v-model="ui.minutes" :min="0" :max="24 * 60" :format-tooltip="formatTooltip" />
       </div>
       <div class="flex h-8 gap-4">
         <div class="text-xxl font-bold">总功率: {{ currentPower }}W</div>
@@ -204,14 +169,8 @@ watch(
       <div class="flex flex-1 w-full h-full">
         <el-scrollbar>
           <div class="flex flex-wrap w-full h-full gap-3">
-            <template
-              v-for="(item, index) in batteryUI"
-              :key="index"
-            >
-              <el-card
-                style="height: 180px; width: 150px"
-                :header="`电池${index + 1}`"
-              >
+            <template v-for="(item, index) in batteryUI" :key="index">
+              <el-card style="height: 180px; width: 150px" :header="`电池${index + 1}`">
                 <div class="flex flex-col text-sm">
                   <div>状态: {{ item.status }}</div>
                   <template v-if="item.status === 'charging'">
@@ -237,11 +196,18 @@ watch(
     destroy-on-close
   >
     <div class="h-full w-full">
-      <line-chart
-        :x-axis="chartsData.xAxis"
-        :y-axis="chartsData.yAxis"
-        :title="chartsData.title"
-      />
+      <line-chart :x-axis="chartsData.xAxis" :y-axis="chartsData.yAxis" :title="chartsData.title" />
+    </div>
+  </el-dialog>
+  <el-dialog
+    v-model="powerDetailModalVisible"
+    title="Power Details"
+    width="80%"
+    fullscreen
+    destroy-on-close
+  >
+    <div class="h-full w-full">
+      <power-table :data="ui.powerMap" />
     </div>
   </el-dialog>
 </template>
